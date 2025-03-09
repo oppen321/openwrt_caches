@@ -121,7 +121,7 @@ jobs:
       if: steps.compile.outputs.status == 'success'
       run: |
         cd $OPENWRT_PATH
-        tar -czf openwrt-cache-${{ matrix.model }}.tar.gz -C staging_dir build_dir dl tmp
+        tar -czf openwrt-cache-${{ matrix.model }}.tar.gz staging_dir build_dir dl tmp
 
     - name: Upload Firmware To Release
       if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
