@@ -33,7 +33,10 @@ jobs:
         model:
           - mt7981
           - mt7986
-        repo: [hanwckf, padavanonly, nekoke]
+        repo:
+          - hanwckf
+          - padavanonly
+          - nekoke
         include:
           - repo: hanwckf
             repo_url: https://github.com/hanwckf/immortalwrt-mt798x
