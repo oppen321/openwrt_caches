@@ -133,4 +133,4 @@ jobs:
         allowUpdates: true
         tag: ${{ env.FIRMWARE_TAG }}
         token: ${{ secrets.GITHUB_TOKEN }}
-        artifacts: openwrt-cache-${{ matrix.model }}.tar.gz
+        artifacts: $OPENWRT_PATH/openwrt-cache-${{ matrix.model }}.tar.gz
