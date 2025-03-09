@@ -82,12 +82,15 @@ jobs:
         temp-reserve-mb: 100
         root-reserve-mb: 1024
 
-    - name: Checkout
-      uses: actions/checkout@main
+    - name: Checkout Source Code
+      uses: actions/checkout@v2
+      with:
+        repository: ${{ matrix.repo_url }}
+        ref: ${{ matrix.repo_branch }}
 
     - name: Clone Source Code
       run: |
-        df -hT $GITHUB_WORKSPACE
+        cd $GITHUB_WORKSPACE
         git clone $REPO_URL -b $REPO_BRANCH openwrt
         cd openwrt
         echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
@@ -140,25 +143,25 @@ jobs:
       if: (!cancelled())
       run: df -hT
 
-- name: Organize Files
-  if: steps.compile.outputs.status == 'success'
-  run: |
-    cd $OPENWRT_PATH
-    case "$SOURCE_REPO" in
-      "hanwckf") CACHE_NAME="openwrt-hanwckf-${{ matrix.model }}.tar.gz" ;;
-      "padavanonly") CACHE_NAME="openwrt-padavanonly-${{ matrix.model }}.tar.gz" ;;
-      "NekokeCore") CACHE_NAME="openwrt-nekokecore-${{ matrix.model }}.tar.gz" ;;
-      *) CACHE_NAME="openwrt-${SOURCE_REPO}-${{ matrix.model }}.tar.gz" ;;
-    esac
-    echo "CACHE_NAME=$CACHE_NAME" >> $GITHUB_ENV
-    tar -czf $CACHE_NAME staging_dir build_dir dl tmp
+  - name: Organize Files
+    if: steps.compile.outputs.status == 'success'
+    run: |
+      cd $OPENWRT_PATH
+      case "$SOURCE_REPO" in
+        "hanwckf") CACHE_NAME="openwrt-hanwckf-${{ matrix.model }}.tar.gz" ;;
+        "padavanonly") CACHE_NAME="openwrt-padavanonly-${{ matrix.model }}.tar.gz" ;;
+        "NekokeCore") CACHE_NAME="openwrt-nekokecore-${{ matrix.model }}.tar.gz" ;;
+        *) CACHE_NAME="openwrt-${SOURCE_REPO}-${{ matrix.model }}.tar.gz" ;;
+      esac
+      echo "CACHE_NAME=$CACHE_NAME" >> $GITHUB_ENV
+      tar -czf $CACHE_NAME staging_dir build_dir dl tmp
 
-- name: Upload Firmware To Release
-  if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
-  uses: ncipollo/release-action@v1
-  with:
-    name: ${{ env.FIRMWARE_TAG }}
-    allowUpdates: true
-    tag: ${{ env.FIRMWARE_TAG }}
-    token: ${{ secrets.GITHUB_TOKEN }}
-    artifacts: $OPENWRT_PATH/${{ env.CACHE_NAME }}
+  - name: Upload Firmware To Release
+    if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
+    uses: ncipollo/release-action@v1
+    with:
+      name: ${{ env.FIRMWARE_TAG }}
+      allowUpdates: true
+      tag: ${{ env.FIRMWARE_TAG }}
+      token: ${{ secrets.GITHUB_TOKEN }}
+      artifacts: $OPENWRT_PATH/${{ env.CACHE_NAME }}
