@@ -11,6 +11,8 @@ jobs:
       REPO_URL: https://github.com/openwrt/openwrt
       REPO_BRANCH: openwrt-24.10
       CONFIG_FILE: configs/${{ matrix.model }}.config
+      FIRMWARE_RELEASE: true
+      FIRMWARE_TAG: openwrt-24.10
       TZ: Asia/Shanghai
     defaults:
       run:
@@ -127,8 +129,8 @@ jobs:
       if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
       uses: ncipollo/release-action@v1
       with:
-        name: openwrt-24.10
+        name: ${{ env.FIRMWARE_TAG }}
         allowUpdates: true
-        tag: openwrt-24.10
+        tag: ${{ env.FIRMWARE_TAG }}
         token: ${{ secrets.GITHUB_TOKEN }}
         artifacts: openwrt-cache-${{ matrix.model }}.tar.gz
