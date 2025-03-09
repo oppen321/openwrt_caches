@@ -24,43 +24,53 @@ jobs:
         shell: bash
 
     steps:
-    - name: Checkout
-      continue-on-error: true
-      uses: actions/checkout@main
-      with:
-        path: oppen321/openwrt_caches
+    - name: Checkout source code
+      uses: actions/checkout@v4
 
-    - name: Setup variables
+    - name: Setup environment variables
       run: |
         sudo timedatectl set-timezone 'Asia/Shanghai'
         git config --global user.name 'actions'
         git config --global user.email 'action@github.com'
-        echo build_dir="/builder" >> "$GITHUB_ENV"
-        
-    - name: Show system
-      run: |
-        echo -e "\n\e[1;32mCPU:\e[0m"
-        echo "$(grep 'model name' /proc/cpuinfo | head -1 | awk -F ': ' '{print $2}') ($(grep 'cpu MHz' /proc/cpuinfo | head -1 | awk -F ': ' '{print $2}')MHz) x $(grep processor /proc/cpuinfo  | wc -l)"
-        echo -e "\n\e[1;32mMemory:\e[0m"
-        free -h
-        echo -e "\n\e[1;32mStorage:\e[0m"
-        df -Th / /mnt
-        echo -e "\n\e[1;32mSystem:\e[0m"
-        lsb_release -a
-        echo -e "\n\e[1;32mKernel:\e[0m"
-        uname -a
-        echo
+        echo "BUILD_DIR=/builder/${{ github.event.inputs.device }}" >> "$GITHUB_ENV"
 
     - name: Free disk space
       uses: oppen321/actions@free-disk
       with:
         build-mount-path: /builder
-        
+
+    - name: Restore build cache for ${{ github.event.inputs.device }}
+      uses: actions/cache@v3
+      with:
+        path: |
+          /builder/${{ github.event.inputs.device }}/staging_dir
+          /builder/${{ github.event.inputs.device }}/build_dir
+          /builder/${{ github.event.inputs.device }}/dl
+          /builder/${{ github.event.inputs.device }}/tmp
+        key: openwrt-cache-${{ github.event.inputs.device }}-${{ github.run_id }}
+        restore-keys: |
+          openwrt-cache-${{ github.event.inputs.device }}-
+
     - name: Build System Setup
       uses: oppen321/actions@openwrt-build-setup
+      with:
+        device: ${{ github.event.inputs.device }}
 
-    - name: Compile Toolchain
-      working-directory: /builder
+    - name: Compile OpenWrt for ${{ github.event.inputs.device }}
+      working-directory: ${{ env.BUILD_DIR }}
       run: |
+        make -j$(nproc) V=s
 
-      
+    - name: Create cache archive
+      run: |
+        tar -czf openwrt-cache-${{ github.event.inputs.device }}.tar.gz -C ${{ env.BUILD_DIR }} staging_dir build_dir dl tmp
+        ls -lh openwrt-cache-${{ github.event.inputs.device }}.tar.gz
+
+    - name: Upload cache file to GitHub Releases
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: cache-${{ github.event.inputs.device }}-${{ github.run_number }}
+        files: openwrt-cache-${{ github.event.inputs.device }}.tar.gz
+        body: "Cached build files for ${{ github.event.inputs.device }}"
+        draft: false
+        prerelease: false
