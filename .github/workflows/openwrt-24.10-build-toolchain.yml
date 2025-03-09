@@ -124,6 +124,7 @@ jobs:
       run: |
         cd $OPENWRT_PATH
         tar -czf openwrt-cache-${{ matrix.model }}.tar.gz staging_dir build_dir dl tmp
+        echo "FIRMWARE_PATH=$PWD" >> $GITHUB_ENV
 
     - name: Upload Firmware To Release
       if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
@@ -133,4 +134,4 @@ jobs:
         allowUpdates: true
         tag: ${{ env.FIRMWARE_TAG }}
         token: ${{ secrets.GITHUB_TOKEN }}
-        artifacts: $OPENWRT_PATH/openwrt-cache-${{ matrix.model }}.tar.gz
+        artifacts: ${{ env.FIRMWARE_PATH }}/openwrt-cache-${{ matrix.model }}.tar.gz
