@@ -2,16 +2,15 @@ name: openwrt-24.10-cache
 
 on:
   workflow_dispatch:
-
-env:
-  REPO_URL: https://github.com/openwrt/openwrt
-  REPO_BRANCH: openwrt-24.10
-  CONFIG_FILE: configs/${{ matrix.model }}.config
   
 jobs:
   build:
     name: ${{ matrix.model }}
     runs-on: ubuntu-22.04
+    env:
+      REPO_URL: https://github.com/openwrt/openwrt
+      REPO_BRANCH: openwrt-24.10
+      CONFIG_FILE: configs/${{ matrix.model }}.config
     defaults:
       run:
         shell: bash
