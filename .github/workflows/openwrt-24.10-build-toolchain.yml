@@ -3,6 +3,11 @@ name: openwrt-24.10-cache
 on:
   workflow_dispatch:
 
+env:
+  REPO_URL: https://github.com/openwrt/openwrt
+  REPO_BRANCH: openwrt-24.10
+  CONFIG_FILE: configs/${{ matrix.model }}.config
+  
 jobs:
   build:
     name: ${{ matrix.model }}
@@ -18,66 +23,112 @@ jobs:
           - x86_64
 
     steps:
-    - name: Checkout openwrt 24.10 source code
-      uses: actions/checkout@v4
-      with:
-        repository: openwrt/openwrt  # 克隆 OpenWrt 官方仓库
-        ref: openwrt-24.10  # 选择 openwrt-24.10 分支
-
-    - name: Setup environment variables
+    - name: Check Server Performance
       run: |
-        sudo timedatectl set-timezone 'Asia/Shanghai'
-        git config --global user.name 'actions'
-        git config --global user.email 'action@github.com'
-        echo "BUILD_DIR=/builder/${{ matrix.model }}" >> "$GITHUB_ENV"
+        echo "警告⚠"
+        echo "分配的服务器性能有限，若选择的插件过多，务必注意CPU性能！"
+        echo -e "已知CPU型号(降序): 7763，8370C，8272CL，8171M，E5-2673\n"
+        echo "--------------------------CPU信息--------------------------"
+        echo "CPU物理数量: $(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)"
+        echo "CPU核心数量: $(nproc)"
+        echo -e "CPU型号信息:$(cat /proc/cpuinfo | grep -m1 name | awk -F: '{print $2}')\n"
+        echo "--------------------------内存信息--------------------------"
+        echo "已安装内存详细信息:"
+        echo -e "$(sudo lshw -short -C memory | grep GiB)\n"
+        echo "--------------------------硬盘信息--------------------------"
+        echo "硬盘数量: $(ls /dev/sd* | grep -v [1-9] | wc -l)" && df -hT
 
-    - name: Free disk space
-      uses: oppen321/actions@free-disk
-      with:
-        build-mount-path: /builder
-
-    - name: Restore build cache for ${{ matrix.model }}
-      uses: actions/cache@v3
-      with:
-        path: |
-          /builder/${{ matrix.model }}/staging_dir
-          /builder/${{ matrix.model }}/build_dir
-          /builder/${{ matrix.model }}/dl
-          /builder/${{ matrix.model }}/tmp
-        key: openwrt-cache-${{ matrix.model }}-${{ github.run_id }}
-        restore-keys: |
-          openwrt-cache-${{ matrix.model }}-
-
-    - name: Build System Setup
-      uses: oppen321/actions@openwrt-build-setup
-      with:
-        device: ${{ matrix.model }}
-
-    - name: Set config for ${{ matrix.model }}
-      working-directory: ${{ env.BUILD_DIR }}
+    - name: Initialization Environment
+      env:
+        DEBIAN_FRONTEND: noninteractive
       run: |
-        make clean
-        cp $GITHUB_WORKSPACE/configs/${{ matrix.model }}.config .config
+        docker rmi $(docker images -q)
+        sudo rm -rf /usr/share/dotnet /etc/apt/sources.list.d /usr/local/lib/android $AGENT_TOOLSDIRECTORY
+        sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
+        sudo -E apt-get -y update
+        sudo -E apt-get -y install $(curl -fsSL https://git.kejizero.online/zhao/files/raw/branch/main/Rely/ubuntu2204)
+        sudo -E systemctl daemon-reload
+        sudo -E apt-get -y autoremove --purge
+        sudo -E apt-get -y clean
+        sudo timedatectl set-timezone "$TZ"
+
+    - name: Combine Disks
+      uses: easimon/maximize-build-space@master
+      with:
+        swap-size-mb: 1024
+        temp-reserve-mb: 100
+        root-reserve-mb: 1024
+
+    - name: Checkout
+      uses: actions/checkout@main
+
+    - name: Clone Source Code
+      run: |
+        df -hT $GITHUB_WORKSPACE
+        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        cd openwrt
+        echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
+        COMMIT_AUTHOR=$(git show -s --date=short --format="作者: %an")
+        echo "COMMIT_AUTHOR=$COMMIT_AUTHOR" >> $GITHUB_ENV
+        COMMIT_DATE=$(git show -s --date=short --format="时间: %ci")
+        echo "COMMIT_DATE=$COMMIT_DATE" >> $GITHUB_ENV
+        COMMIT_MESSAGE=$(git show -s --date=short --format="内容: %s")
+        echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
+        COMMIT_HASH=$(git show -s --date=short --format="hash: %H")
+        echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+
+    - name: Generate Variables
+      run: |
+        cp $CONFIG_FILE $OPENWRT_PATH/.config
+        cd $OPENWRT_PATH
+        make defconfig > /dev/null 2>&1
+        SOURCE_REPO="$(echo $REPO_URL | awk -F '/' '{print $(NF)}')"
+        echo "SOURCE_REPO=$SOURCE_REPO" >> $GITHUB_ENV
+        DEVICE_TARGET=$(cat .config | grep CONFIG_TARGET_BOARD | awk -F '"' '{print $2}')
+        echo "DEVICE_TARGET=$DEVICE_TARGET" >> $GITHUB_ENV
+        DEVICE_SUBTARGET=$(cat .config | grep CONFIG_TARGET_SUBTARGET | awk -F '"' '{print $2}')
+        echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> $GITHUB_ENV
+
+    - name: Install Feeds
+      run: |
+        cd $OPENWRT_PATH
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: Download DL Package
+      run: |
+        cd $OPENWRT_PATH
         make defconfig
-        echo "Applied config for ${{ matrix.model }}"
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
 
-    - name: Compile OpenWrt for ${{ matrix.model }}
-      working-directory: ${{ env.BUILD_DIR }}
+    - name: Compile Firmware
+      id: compile
       run: |
-        make -j$(nproc) V=s
+        cd $OPENWRT_PATH
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "status=success" >> $GITHUB_OUTPUT
+        echo "DATE=$(date +"%Y-%m-%d %H:%M:%S")" >> $GITHUB_ENV
+        echo "FILE_DATE=$(date +"%Y.%m.%d")" >> $GITHUB_ENV
 
-    - name: Create cache archive
+    - name: Check Space Usage
+      if: (!cancelled())
+      run: df -hT
+
+    - name: Organize Files
+      if: steps.compile.outputs.status == 'success'
       run: |
-        tar -czf openwrt-cache-${{ matrix.model }}.tar.gz -C ${{ env.BUILD_DIR }} staging_dir build_dir dl tmp
-        ls -lh openwrt-cache-${{ matrix.model }}.tar.gz
+        cd $OPENWRT_PATH
+        tar -czf openwrt-cache-${{ matrix.model }}.tar.gz -C staging_dir build_dir dl tmp
 
-    - name: Create release
-      uses: ncipollo/release-action@v1.14.0
+    - name: Upload Firmware To Release
+      if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
+      uses: ncipollo/release-action@v1
       with:
         name: openwrt-24.10
         allowUpdates: true
         tag: openwrt-24.10
-        commit: openwrt-24.10
-        replacesArtifacts: true
         token: ${{ secrets.GITHUB_TOKEN }}
         artifacts: openwrt-cache-${{ matrix.model }}.tar.gz
