@@ -2,27 +2,17 @@ name: openwrt-mt798x-cache
 
 on:
   workflow_dispatch:
-    inputs:
-      repo:
-        description: "选择源码仓库"
-        required: true
-        default: "hanwckf"
-        type: choice
-        options:
-          - hanwckf
-          - padavanonly
-          - NekokeCore
-
+  
 jobs:
   build:
-    name: ${{ matrix.model }}-${{ matrix.repo }}
+    name: ${{ matrix.model }}
     runs-on: ubuntu-22.04
     env:
-      REPO_URL: ${{ matrix.repo_url }}
-      REPO_BRANCH: ${{ matrix.repo_branch }}
+      REPO_URL: https://github.com/hanwckf/immortalwrt-mt798x
+      REPO_BRANCH: openwrt-21.02
       CONFIG_FILE: configs/${{ matrix.model }}.config
       FIRMWARE_RELEASE: true
-      FIRMWARE_TAG: ${{ matrix.repo_branch }}
+      FIRMWARE_TAG: openwrt-21.02
       TZ: Asia/Shanghai
     defaults:
       run:
@@ -33,18 +23,6 @@ jobs:
         model:
           - mt7981
           - mt7986
-        repo:
-          - hanwckf
-          - padavanonly
-          - nekoke
-        repo_url:
-          - https://github.com/hanwckf/immortalwrt-mt798x
-          - https://github.com/padavanonly/immortalwrt-mt798x-23.05
-          - https://github.com/NekokeCore/immortalwrt-mt798x-24.10
-        repo_branch:
-          - openwrt-21.02
-          - openwrt-23.05
-          - openwrt-24.10
 
     steps:
     - name: Check Server Performance
@@ -83,16 +61,28 @@ jobs:
         temp-reserve-mb: 100
         root-reserve-mb: 1024
 
-    - name: Checkout Source Code
-      uses: actions/checkout@v2
-      with:
-        repository: ${{ matrix.repo_url }}
-        ref: ${{ matrix.repo_branch }}
+    - name: Checkout
+      uses: actions/checkout@main
+
+    - name: Clone Source Code
+      run: |
+        df -hT $GITHUB_WORKSPACE
+        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        cd openwrt
+        echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
+        COMMIT_AUTHOR=$(git show -s --date=short --format="作者: %an")
+        echo "COMMIT_AUTHOR=$COMMIT_AUTHOR" >> $GITHUB_ENV
+        COMMIT_DATE=$(git show -s --date=short --format="时间: %ci")
+        echo "COMMIT_DATE=$COMMIT_DATE" >> $GITHUB_ENV
+        COMMIT_MESSAGE=$(git show -s --date=short --format="内容: %s")
+        echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
+        COMMIT_HASH=$(git show -s --date=short --format="hash: %H")
+        echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
 
     - name: Generate Variables
       run: |
-        cp $CONFIG_FILE $GITHUB_WORKSPACE/.config
-        cd $GITHUB_WORKSPACE
+        cp $CONFIG_FILE $OPENWRT_PATH/.config
+        cd $OPENWRT_PATH
         make defconfig > /dev/null 2>&1
         SOURCE_REPO="$(echo $REPO_URL | awk -F '/' '{print $(NF)}')"
         echo "SOURCE_REPO=$SOURCE_REPO" >> $GITHUB_ENV
@@ -103,13 +93,13 @@ jobs:
 
     - name: Install Feeds
       run: |
-        cd $GITHUB_WORKSPACE
+        cd $OPENWRT_PATH
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
     - name: Download DL Package
       run: |
-        cd $GITHUB_WORKSPACE
+        cd $OPENWRT_PATH
         make defconfig
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
@@ -118,7 +108,7 @@ jobs:
     - name: Compile Firmware
       id: compile
       run: |
-        cd $GITHUB_WORKSPACE
+        cd $OPENWRT_PATH
         echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
@@ -129,25 +119,18 @@ jobs:
       if: (!cancelled())
       run: df -hT
 
-  - name: Organize Files
-    if: steps.compile.outputs.status == 'success'
-    run: |
-      cd $GITHUB_WORKSPACE
-      case "$SOURCE_REPO" in
-        "hanwckf") CACHE_NAME="openwrt-hanwckf-${{ matrix.model }}.tar.gz" ;;
-        "padavanonly") CACHE_NAME="openwrt-padavanonly-${{ matrix.model }}.tar.gz" ;;
-        "NekokeCore") CACHE_NAME="openwrt-nekokecore-${{ matrix.model }}.tar.gz" ;;
-        *) CACHE_NAME="openwrt-${SOURCE_REPO}-${{ matrix.model }}.tar.gz" ;;
-      esac
-      echo "CACHE_NAME=$CACHE_NAME" >> $GITHUB_ENV
-      tar -czf $CACHE_NAME staging_dir build_dir dl tmp
+    - name: Organize Files
+      if: steps.compile.outputs.status == 'success'
+      run: |
+        cd $OPENWRT_PATH
+        tar -czf openwrt-cache-${{ matrix.model }}.tar.gz staging_dir build_dir dl tmp
 
-  - name: Upload Firmware To Release
-    if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
-    uses: ncipollo/release-action@v1
-    with:
-      name: ${{ env.FIRMWARE_TAG }}
-      allowUpdates: true
-      tag: ${{ env.FIRMWARE_TAG }}
-      token: ${{ secrets.GITHUB_TOKEN }}
-      artifacts: $GITHUB_WORKSPACE/${{ env.CACHE_NAME }}
+    - name: Upload Firmware To Release
+      if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
+      uses: ncipollo/release-action@v1
+      with:
+        name: ${{ env.FIRMWARE_TAG }}
+        allowUpdates: true
+        tag: ${{ env.FIRMWARE_TAG }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: $OPENWRT_PATH/openwrt-cache-${{ matrix.model }}.tar.gz
