@@ -10,9 +10,6 @@ on:
         type: choice
         options:
           - 'rockchip'
-          - 'mt798x'
-          - 'ipq807x'
-          - 'ipq50xx'
           - 'x86_64'
 
 jobs:
@@ -55,7 +52,15 @@ jobs:
       uses: oppen321/actions@openwrt-build-setup
       with:
         device: ${{ github.event.inputs.device }}
-
+        
+    - name: Set .config for ${{ matrix.model }}
+      working-directory: ${{ env.BUILD_DIR }}
+      run: |
+        make clean
+        cp configs/${{ matrix.model }}.config .config
+        make defconfig
+        echo "Applied config for ${{ matrix.model }}"
+        
     - name: Compile OpenWrt for ${{ github.event.inputs.device }}
       working-directory: ${{ env.BUILD_DIR }}
       run: |
