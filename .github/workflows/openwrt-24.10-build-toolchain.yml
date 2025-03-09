@@ -11,6 +11,7 @@ jobs:
       REPO_URL: https://github.com/openwrt/openwrt
       REPO_BRANCH: openwrt-24.10
       CONFIG_FILE: configs/${{ matrix.model }}.config
+      TZ: Asia/Shanghai
     defaults:
       run:
         shell: bash
