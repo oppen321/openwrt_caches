@@ -2,57 +2,57 @@ name: openwrt-24.10-cache
 
 on:
   workflow_dispatch:
-    inputs:
-      device:
-        description: 'Select the build device'
-        required: true
-        default: 'x86_64'
-        type: choice
-        options:
-          - 'rockchip'
-          - 'x86_64'
 
 jobs:
   build:
-    name: Build ${{ github.event.inputs.device }}
+    name: ${{ matrix.model }}-${{ matrix.libc }}
     runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        model:
+          - rockchip
+          - x86_64
 
     steps:
-    - name: Checkout source code
+    - name: Checkout openwrt 24.10 source code
       uses: actions/checkout@v4
+      with:
+        repository: openwrt/openwrt  # 克隆 OpenWrt 官方仓库
+        ref: openwrt-24.10  # 选择 openwrt-24.10 分支
 
     - name: Setup environment variables
       run: |
         sudo timedatectl set-timezone 'Asia/Shanghai'
         git config --global user.name 'actions'
         git config --global user.email 'action@github.com'
-        echo "BUILD_DIR=/builder/${{ github.event.inputs.device }}" >> "$GITHUB_ENV"
+        echo "BUILD_DIR=/builder/${{ matrix.model }}" >> "$GITHUB_ENV"
 
     - name: Free disk space
       uses: oppen321/actions@free-disk
       with:
         build-mount-path: /builder
 
-    - name: Restore build cache for ${{ github.event.inputs.device }}
+    - name: Restore build cache for ${{ matrix.model }}
       uses: actions/cache@v3
       with:
         path: |
-          /builder/${{ github.event.inputs.device }}/staging_dir
-          /builder/${{ github.event.inputs.device }}/build_dir
-          /builder/${{ github.event.inputs.device }}/dl
-          /builder/${{ github.event.inputs.device }}/tmp
-        key: openwrt-cache-${{ github.event.inputs.device }}-${{ github.run_id }}
+          /builder/${{ matrix.model }}/staging_dir
+          /builder/${{ matrix.model }}/build_dir
+          /builder/${{ matrix.model }}/dl
+          /builder/${{ matrix.model }}/tmp
+        key: openwrt-cache-${{ matrix.model }}-${{ github.run_id }}
         restore-keys: |
-          openwrt-cache-${{ github.event.inputs.device }}-
+          openwrt-cache-${{ matrix.model }}-
 
     - name: Build System Setup
       uses: oppen321/actions@openwrt-build-setup
       with:
-        device: ${{ github.event.inputs.device }}
-        
+        device: ${{ matrix.model }}
+
     - name: Set .config for ${{ matrix.model }}
       working-directory: ${{ env.BUILD_DIR }}
       run: |
@@ -60,22 +60,22 @@ jobs:
         cp configs/${{ matrix.model }}.config .config
         make defconfig
         echo "Applied config for ${{ matrix.model }}"
-        
-    - name: Compile OpenWrt for ${{ github.event.inputs.device }}
+
+    - name: Compile OpenWrt for ${{ matrix.model }}
       working-directory: ${{ env.BUILD_DIR }}
       run: |
         make -j$(nproc) V=s
 
     - name: Create cache archive
       run: |
-        tar -czf openwrt-cache-${{ github.event.inputs.device }}.tar.gz -C ${{ env.BUILD_DIR }} staging_dir build_dir dl tmp
-        ls -lh openwrt-cache-${{ github.event.inputs.device }}.tar.gz
+        tar -czf openwrt-cache-${{ matrix.model }}.tar.gz -C ${{ env.BUILD_DIR }} staging_dir build_dir dl tmp
+        ls -lh openwrt-cache-${{ matrix.model }}.tar.gz
 
     - name: Upload cache file to GitHub Releases
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: cache-${{ github.event.inputs.device }}-${{ github.run_number }}
-        files: openwrt-cache-${{ github.event.inputs.device }}.tar.gz
-        body: "Cached build files for ${{ github.event.inputs.device }}"
+        tag_name: cache-${{ matrix.model }}-${{ github.run_number }}
+        files: openwrt-cache-${{ matrix.model }}.tar.gz
+        body: "Cached build files for ${{ matrix.model }}"
         draft: false
         prerelease: false
