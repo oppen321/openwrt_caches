@@ -1,33 +1,16 @@
-name: openwrt-24.10-gcc13
+name: openwrt-24.10-cache
 
-on: workflow_dispatch
-
-jobs:
-  build:
-    name: ${{ matrix.model }}-${{ matrix.libc }}
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        shell: bash
-    strategy:
-      fail-fast: false
-      matrix:
-        model:
-          - Rockchip
-          - MT798x
-          - X86_64
-          - IPQ_807x
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@main
-
-    - name: Set time zone
-      run: sudo timedatectl set-timezone 'Asia/Shanghai'
-
-    - name: Show system
-      run: |
-        lscpu
-        free -h
-        df -Th
-        uname -a
+on:
+  workflow_dispatch:
+    inputs:
+      device:
+        description: 'Select the build device'
+        required: true
+        default: 'x86_64'
+        type: choice
+        options:
+          - 'rockchip'
+          - 'mt798x'
+          - 'ipq807x'
+          - 'ipq50xx'
+          - 'x86_64'
