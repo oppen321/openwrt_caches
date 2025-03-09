@@ -2,6 +2,11 @@ name: openwrt-mt798x-cache
 
 on:
   workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.model }}-${{ matrix.repo }}
+    runs-on: ubuntu-22.04
     inputs:
       repo:
         description: "选择源码仓库"
@@ -12,11 +17,6 @@ on:
           - hanwckf
           - padavanonly
           - NekokeCore
-
-jobs:
-  build:
-    name: ${{ matrix.model }}-${{ matrix.repo }}
-    runs-on: ubuntu-22.04
     env:
       REPO_URL: ${{ matrix.repo_url }}
       REPO_BRANCH: ${{ matrix.repo_branch }}
