@@ -71,11 +71,13 @@ jobs:
         tar -czf openwrt-cache-${{ matrix.model }}.tar.gz -C ${{ env.BUILD_DIR }} staging_dir build_dir dl tmp
         ls -lh openwrt-cache-${{ matrix.model }}.tar.gz
 
-    - name: Upload cache file to GitHub Releases
-      uses: softprops/action-gh-release@v2
+    - name: Create release
+      uses: ncipollo/release-action@v1.14.0
       with:
-        tag_name: cache-${{ matrix.model }}-${{ github.run_number }}
-        files: openwrt-cache-${{ matrix.model }}.tar.gz
-        body: "Cached build files for ${{ matrix.model }}"
-        draft: false
-        prerelease: false
+        name: openwrt-24.10
+        allowUpdates: true
+        tag: openwrt-24.10
+        commit: openwrt-24.10
+        replacesArtifacts: true
+        token: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: openwrt-cache-${{ matrix.model }}.tar.gz
