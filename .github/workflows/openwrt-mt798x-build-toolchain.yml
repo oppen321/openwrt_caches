@@ -37,16 +37,19 @@ jobs:
           - hanwckf
           - padavanonly
           - nekoke
-        include:
-          - repo: hanwckf
-            repo_url: https://github.com/hanwckf/immortalwrt-mt798x
-            repo_branch: openwrt-21.02
-          - repo: padavanonly
-            repo_url: https://github.com/padavanonly/immortalwrt-mt798x-23.05
-            repo_branch: openwrt-23.05
-          - repo: nekoke
-            repo_url: https://github.com/NekokeCore/immortalwrt-mt798x-24.10
-            repo_branch: openwrt-24.10
+      include:
+        - model: mt7981
+          repo: hanwckf
+          repo_url: https://github.com/hanwckf/immortalwrt-mt798x
+          repo_branch: openwrt-21.02
+        - model: mt7986
+          repo: padavanonly
+          repo_url: https://github.com/padavanonly/immortalwrt-mt798x-23.05
+          repo_branch: openwrt-23.05
+        - model: mt7981
+          repo: nekoke
+          repo_url: https://github.com/NekokeCore/immortalwrt-mt798x-24.10
+          repo_branch: openwrt-24.10
 
     steps:
     - name: Check Server Performance
@@ -131,25 +134,25 @@ jobs:
       if: (!cancelled())
       run: df -hT
 
-  - name: Organize Files
-    if: steps.compile.outputs.status == 'success'
-    run: |
-      cd $GITHUB_WORKSPACE
-      case "$SOURCE_REPO" in
-        "hanwckf") CACHE_NAME="openwrt-hanwckf-${{ matrix.model }}.tar.gz" ;;
-        "padavanonly") CACHE_NAME="openwrt-padavanonly-${{ matrix.model }}.tar.gz" ;;
-        "NekokeCore") CACHE_NAME="openwrt-nekokecore-${{ matrix.model }}.tar.gz" ;;
-        *) CACHE_NAME="openwrt-${SOURCE_REPO}-${{ matrix.model }}.tar.gz" ;;
-      esac
-      echo "CACHE_NAME=$CACHE_NAME" >> $GITHUB_ENV
-      tar -czf $CACHE_NAME staging_dir build_dir dl tmp
+    - name: Organize Files
+      if: steps.compile.outputs.status == 'success'
+      run: |
+        cd $GITHUB_WORKSPACE
+        case "$SOURCE_REPO" in
+          "hanwckf") CACHE_NAME="openwrt-hanwckf-${{ matrix.model }}.tar.gz" ;;
+          "padavanonly") CACHE_NAME="openwrt-padavanonly-${{ matrix.model }}.tar.gz" ;;
+          "NekokeCore") CACHE_NAME="openwrt-nekokecore-${{ matrix.model }}.tar.gz" ;;
+          *) CACHE_NAME="openwrt-${SOURCE_REPO}-${{ matrix.model }}.tar.gz" ;;
+        esac
+        echo "CACHE_NAME=$CACHE_NAME" >> $GITHUB_ENV
+        tar -czf $CACHE_NAME staging_dir build_dir dl tmp
 
-  - name: Upload Firmware To Release
-    if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
-    uses: ncipollo/release-action@v1
-    with:
-      name: ${{ env.FIRMWARE_TAG }}
-      allowUpdates: true
-      tag: ${{ env.FIRMWARE_TAG }}
-      token: ${{ secrets.GITHUB_TOKEN }}
-      artifacts: $GITHUB_WORKSPACE/${{ env.CACHE_NAME }}
+    - name: Upload Firmware To Release
+      if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
+      uses: ncipollo/release-action@v1
+      with:
+        name: ${{ env.FIRMWARE_TAG }}
+        allowUpdates: true
+        tag: ${{ env.FIRMWARE_TAG }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: $GITHUB_WORKSPACE/${{ env.CACHE_NAME }}
