@@ -58,10 +58,10 @@ jobs:
     - name: Create release
       uses: ncipollo/release-action@v1.14.0
       with:
-        name: ${{ matrix.tag.version }}
+        name: ${{ matrix.model }}
         allowUpdates: true
-        tag: ${{ matrix.tag.version }}
-        commit: openwrt-24.10
+        tag: ${{ matrix.model }}
+        commit: main
         replacesArtifacts: true
-        token: ${{ secrets.workflow_token }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         artifacts: ${{ env.WORKDIR }}/openwrt/toolchain-cache/*
