@@ -15,6 +15,8 @@ jobs:
         model:
           - Hanwckf_MT798X_v21.02
           - Padavanonly_MT798X_v24.10
+          - OpenWrt_Rockchip_v24.10
+          - OpenWrt_X86_64_v24.10
           
     steps:
     - name: Checkout
