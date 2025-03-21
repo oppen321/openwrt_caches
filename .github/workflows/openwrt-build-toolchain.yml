@@ -60,9 +60,9 @@ jobs:
     - name: Create release
       uses: ncipollo/release-action@v1.14.0
       with:
-        name: ${{ matrix.model }}
+        name: OpenWrt_Toolchain_Cache
         allowUpdates: true
-        tag: ${{ matrix.model }}
+        tag: OpenWrt_Toolchain_Cache
         commit: main
         replacesArtifacts: true
         token: ${{ secrets.GITHUB_TOKEN }}
