@@ -1,1 +1,67 @@
+name: openwrt-24.10-gcc13
 
+on: workflow_dispatch
+
+jobs:
+  build:
+    name: ${{ matrix.model }}
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        model:
+          - OpenWrt_Rockchip_v24.10
+          - OpenWrt_X86_64_v24.10
+          
+    steps:
+    - name: Checkout
+      uses: actions/checkout@main
+
+    - name: Set time zone
+      run: sudo timedatectl set-timezone 'Asia/Shanghai'
+
+    - name: Show system
+      run: |
+        lscpu
+        free -h
+        df -Th
+        uname -a
+
+    - name: Set release env
+      run: |
+        sudo mkdir -p /builder
+        sudo chown -R runner.runner /builder
+        echo WORKDIR="/builder" >> "$GITHUB_ENV"
+        git config --global user.name 'actions'
+        git config --global user.email 'action@github.com'
+
+    - name: Free disk space
+      uses: sbwml/actions@free-disk
+      with:
+        build-mount-path: /builder
+
+    - name: Install LLVM
+      uses: sbwml/actions@install-llvm
+
+    - name: Build System Setup
+      uses: sbwml/actions@openwrt-build-setup
+
+    - name: Compile Toolchain
+      working-directory: /builder
+      run: |
+        export model=${{ matrix.model }}
+        bash <(curl -sS ${{ secrets.script_url_general }}) "$model"
+
+    - name: Create release
+      uses: ncipollo/release-action@v1.14.0
+      with:
+        name: OpenWrt_Toolchain_Cache
+        allowUpdates: true
+        tag: OpenWrt_Toolchain_Cache
+        commit: main
+        replacesArtifacts: true
+        token: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: ${{ env.WORKDIR }}/openwrt/toolchain-cache/*
