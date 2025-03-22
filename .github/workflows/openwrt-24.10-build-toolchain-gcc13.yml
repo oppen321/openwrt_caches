@@ -1,4 +1,4 @@
-name: openwrt-build-toolchain
+name: openwrt-24.10-gcc13
 
 on: workflow_dispatch
 
