@@ -53,7 +53,7 @@ jobs:
       working-directory: /builder
       run: |
         export model=${{ matrix.model }}
-        bash <(curl -sS ${{ secrets.script_url_general }}) "$model"
+        USE_GCC13=y bash <(curl -sS ${{ secrets.script_url_general }}) "$model"
 
     - name: Create release
       uses: ncipollo/release-action@v1.14.0
