@@ -53,7 +53,7 @@ jobs:
       working-directory: /builder
       run: |
         export model=${{ matrix.model }}
-        USE_GCC15=y ENABLE_GLIBC=y bash <(curl -sS ${{ secrets.script_url_general }}) "$model"
+        USE_GCC15=y ENABLE_GLIBC=y ENABLE_LTO=y ENABLE_BPF=y ENABLE_MOLD=y bash <(curl -sS ${{ secrets.script_url_general }}) "$model"
 
     - name: Create release
       uses: ncipollo/release-action@v1.14.0
