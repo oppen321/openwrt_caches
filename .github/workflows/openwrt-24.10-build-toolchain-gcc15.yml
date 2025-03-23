@@ -15,11 +15,6 @@ jobs:
         model:
           - OpenWrt_Rockchip_v24.10
           - OpenWrt_X86_64_v24.10
-        libc:
-          - musl
-        tools:
-          - ccache
-          - noccache
           
     steps:
     - name: Checkout
@@ -58,9 +53,7 @@ jobs:
       working-directory: /builder
       run: |
         export model=${{ matrix.model }}
-        [ "${{ matrix.libc }}" = "glibc" ] && export ENABLE_GLIBC=y
-        [ "${{ matrix.tools }}" = "ccache" ] && export ENABLE_CCACHE=y
-        USE_GCC15=y ENABLE_LTO=y ENABLE_BPF=y ENABLE_MOLD=y bash <(curl -sS ${{ secrets.script_url_general }}) "$model"
+        USE_GCC15=y ENABLE_LTO=y ENABLE_GLIBC=y ENABLE_BPF=y ENABLE_CCACHE=y ENABLE_MOLD=y bash <(curl -sS ${{ secrets.script_url_general }}) "$model"
 
     - name: Create release
       uses: ncipollo/release-action@v1.14.0
